@@ -34,16 +34,17 @@ export async function PUT(_req: NextRequest, { params }: { params: { id: string 
   if (!domain) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   try {
-    const whmRecords = await getDomainDnsZone(domain.name);
-    const mapped = whmRecords
-      .filter((r: { type: string }) => ["A", "AAAA", "CNAME", "MX", "TXT", "NS"].includes(r.type))
-      .map((r: { type: string; name: string; address?: string; cname?: string; txtdata?: string; exchange?: string; ttl?: number; preference?: number }) => ({
+    const swRecords = await getDomainDnsZone(domain.name);
+    const allowedTypes = ["A", "AAAA", "CNAME", "MX", "TXT", "NS", "SRV", "CAA"];
+    const mapped = swRecords
+      .filter((r) => allowedTypes.includes(r.type?.toUpperCase()))
+      .map((r) => ({
         domainId: params.id,
-        type: r.type as DnsType,
+        type: r.type.toUpperCase() as DnsType,
         name: r.name ?? "@",
-        value: r.address ?? r.cname ?? r.txtdata ?? r.exchange ?? "",
+        value: r.content ?? "",
         ttl: r.ttl ?? 3600,
-        priority: r.preference ?? null,
+        priority: r.priority ?? null,
       }));
 
     await prisma.dnsRecord.deleteMany({ where: { domainId: params.id } });
@@ -51,6 +52,6 @@ export async function PUT(_req: NextRequest, { params }: { params: { id: string 
 
     return NextResponse.json({ synced: mapped.length });
   } catch {
-    return NextResponse.json({ error: "Failed to sync from WHM" }, { status: 502 });
+    return NextResponse.json({ error: "Failed to sync DNS from Synergy Wholesale" }, { status: 502 });
   }
 }
