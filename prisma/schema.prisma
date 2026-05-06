@@ -8,21 +8,15 @@ datasource db {
 }
 
 model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  name      String
-  password  String
-  role      Role      @default(STAFF)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
+  id              String             @id @default(cuid())
+  email           String             @unique
+  name            String
+  password        String
+  role            Role               @default(STAFF)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
   assignedTickets TicketAssignment[]
   comments        TicketComment[]
-}
-
-enum Role {
-  ADMIN
-  STAFF
 }
 
 model Client {
@@ -35,25 +29,79 @@ model Client {
   notes        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-
-  domains Domain[]
-  tickets Ticket[]
+  domains      Domain[]
+  tickets      Ticket[]
+  hostingAccounts HostingAccount[]
 }
 
 model Domain {
   id          String       @id @default(cuid())
   name        String       @unique
-  clientId    String
-  client      Client       @relation(fields: [clientId], references: [id])
+  clientId    String?
   registrar   String?
   synergyId   String?
   expiresAt   DateTime?
   autoRenew   Boolean      @default(true)
   status      DomainStatus @default(ACTIVE)
   nameservers String[]
-  dnsRecords  DnsRecord[]
+  source      String       @default("MANUAL")
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+  dnsRecords  DnsRecord[]
+  client      Client?      @relation(fields: [clientId], references: [id])
+}
+
+model DnsRecord {
+  id        String   @id @default(cuid())
+  domainId  String
+  type      DnsType
+  name      String
+  value     String
+  ttl       Int      @default(3600)
+  priority  Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  domain    Domain   @relation(fields: [domainId], references: [id], onDelete: Cascade)
+}
+
+model Ticket {
+  id          String             @id @default(cuid())
+  title       String
+  description String
+  status      TicketStatus       @default(OPEN)
+  priority    Priority           @default(MEDIUM)
+  clientId    String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  client      Client             @relation(fields: [clientId], references: [id])
+  assignments TicketAssignment[]
+  comments    TicketComment[]
+}
+
+model TicketAssignment {
+  ticketId String
+  userId   String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user     User   @relation(fields: [userId], references: [id])
+
+  @@id([ticketId, userId])
+}
+
+model TicketComment {
+  id        String   @id @default(cuid())
+  ticketId  String
+  authorId  String
+  content   String
+  internal  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  author    User     @relation(fields: [authorId], references: [id])
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+}
+
+enum Role {
+  ADMIN
+  STAFF
 }
 
 enum DomainStatus {
@@ -62,19 +110,6 @@ enum DomainStatus {
   EXPIRED
   TRANSFERRED
   SUSPENDED
-}
-
-model DnsRecord {
-  id        String   @id @default(cuid())
-  domainId  String
-  domain    Domain   @relation(fields: [domainId], references: [id], onDelete: Cascade)
-  type      DnsType
-  name      String
-  value     String
-  ttl       Int      @default(3600)
-  priority  Int?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 enum DnsType {
@@ -86,29 +121,6 @@ enum DnsType {
   NS
   SRV
   CAA
-}
-
-model Ticket {
-  id          String        @id @default(cuid())
-  title       String
-  description String
-  status      TicketStatus  @default(OPEN)
-  priority    Priority      @default(MEDIUM)
-  clientId    String
-  client      Client        @relation(fields: [clientId], references: [id])
-  comments    TicketComment[]
-  assignments TicketAssignment[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-}
-
-model TicketAssignment {
-  ticketId String
-  userId   String
-  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  user     User   @relation(fields: [userId], references: [id])
-
-  @@id([ticketId, userId])
 }
 
 enum TicketStatus {
@@ -126,14 +138,19 @@ enum Priority {
   URGENT
 }
 
-model TicketComment {
-  id        String   @id @default(cuid())
-  ticketId  String
-  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id])
-  content   String
-  internal  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model HostingAccount {
+  id            String   @id @default(cuid())
+  username      String   @unique
+  primaryDomain String
+  plan          String?
+  diskUsedMb    Int?
+  diskLimitMb   Int?
+  ip            String?
+  email         String?
+  suspended     Boolean  @default(false)
+  source        String   @default("WHM")
+  clientId      String?
+  client        Client?  @relation(fields: [clientId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }

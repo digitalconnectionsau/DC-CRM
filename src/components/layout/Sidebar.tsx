@@ -8,6 +8,7 @@ import {
   UsersIcon,
   GlobeAltIcon,
   TicketIcon,
+  Cog6ToothIcon,
   ArrowRightStartOnRectangleIcon,
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,7 @@ const nav = [
   { href: "/clients", label: "Clients", icon: UsersIcon },
   { href: "/domains", label: "Domains", icon: GlobeAltIcon },
   { href: "/tickets", label: "Tickets", icon: TicketIcon },
+  { href: "/settings", label: "Settings", icon: Cog6ToothIcon },
 ];
 
 export function Sidebar() {

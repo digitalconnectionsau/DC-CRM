@@ -23,8 +23,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { name, clientId, registrar, expiresAt, autoRenew, nameservers } = body;
 
-  if (!name || !clientId) {
-    return NextResponse.json({ error: "Domain name and client are required" }, { status: 400 });
+  if (!name) {
+    return NextResponse.json({ error: "Domain name is required" }, { status: 400 });
   }
 
   let status: DomainStatus = "ACTIVE";
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     const domain = await prisma.domain.create({
       data: {
         name: name.toLowerCase().trim(),
-        clientId,
+        clientId: clientId || null,
         registrar: registrar || null,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
         autoRenew: autoRenew ?? true,

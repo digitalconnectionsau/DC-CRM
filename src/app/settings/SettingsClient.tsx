@@ -1,0 +1,312 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import toast from "react-hot-toast";
+import { Card, CardHeader, CardContent } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+
+interface Client {
+  id: string;
+  name: string;
+}
+
+interface Domain {
+  id: string;
+  name: string;
+  status: string;
+  clientId: string | null;
+  client: Client | null;
+  source: string;
+  expiresAt: string | null;
+}
+
+interface HostingAccount {
+  id: string;
+  username: string;
+  primaryDomain: string;
+  plan: string | null;
+  diskUsedMb: number | null;
+  diskLimitMb: number | null;
+  suspended: boolean;
+  clientId: string | null;
+  client: Client | null;
+}
+
+export function SettingsClient() {
+  const [clients, setClients] = useState<Client[]>([]);
+  const [domains, setDomains] = useState<Domain[]>([]);
+  const [hosting, setHosting] = useState<HostingAccount[]>([]);
+  const [pullingDomains, setPullingDomains] = useState(false);
+  const [loadingDomains, setLoadingDomains] = useState(false);
+  const [loadingHosting, setLoadingHosting] = useState(false);
+
+  const loadClients = useCallback(async () => {
+    const res = await fetch("/api/clients");
+    if (res.ok) setClients(await res.json());
+  }, []);
+
+  const loadDomains = useCallback(async () => {
+    setLoadingDomains(true);
+    const res = await fetch("/api/domains");
+    if (res.ok) setDomains(await res.json());
+    setLoadingDomains(false);
+  }, []);
+
+  const loadHosting = useCallback(async () => {
+    setLoadingHosting(true);
+    const res = await fetch("/api/hosting");
+    if (res.ok) setHosting(await res.json());
+    setLoadingHosting(false);
+  }, []);
+
+  useEffect(() => {
+    loadClients();
+    loadDomains();
+    loadHosting();
+  }, [loadClients, loadDomains, loadHosting]);
+
+  async function pullDomains() {
+    setPullingDomains(true);
+    try {
+      const res = await fetch("/api/integrations/synergy/pull-domains", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`Pulled ${data.total} domains — ${data.created} new, ${data.updated} updated`);
+        loadDomains();
+      } else {
+        toast.error(data.detail ?? data.error ?? "Failed to pull domains");
+      }
+    } catch {
+      toast.error("Network error");
+    }
+    setPullingDomains(false);
+  }
+
+  async function assignDomain(domainId: string, clientId: string) {
+    const res = await fetch(`/api/domains/${domainId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId: clientId || null }),
+    });
+    if (res.ok) {
+      toast.success("Domain assigned");
+      loadDomains();
+    } else {
+      toast.error("Failed to assign domain");
+    }
+  }
+
+  async function assignHosting(accountId: string, clientId: string) {
+    const res = await fetch(`/api/hosting/${accountId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId: clientId || null }),
+    });
+    if (res.ok) {
+      toast.success("Hosting account assigned");
+      loadHosting();
+    } else {
+      toast.error("Failed to assign hosting account");
+    }
+  }
+
+  const unassignedDomains = domains.filter((d) => !d.clientId);
+
+  return (
+    <div className="p-6 space-y-6">
+
+        {/* Synergy Wholesale Integration */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold text-gray-900">Synergy Wholesale</h2>
+                <p className="text-sm text-gray-500 mt-0.5">Pull domains registered through Synergy Wholesale into this portal.</p>
+              </div>
+              <Badge label="SOAP API" variant="blue" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-3">
+              <button
+                onClick={pullDomains}
+                disabled={pullingDomains}
+                className="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50 transition-colors"
+              >
+                {pullingDomains ? "Pulling Domains…" : "Pull Domains from Synergy"}
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Unassigned Domains */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-gray-900">
+                Unassigned Domains
+                {unassignedDomains.length > 0 && (
+                  <span className="ml-2 text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">
+                    {unassignedDomains.length}
+                  </span>
+                )}
+              </h2>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            {loadingDomains ? (
+              <p className="px-6 py-4 text-sm text-gray-400">Loading…</p>
+            ) : unassignedDomains.length === 0 ? (
+              <p className="px-6 py-4 text-sm text-gray-400">All domains are assigned to clients. ✓</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left font-medium text-gray-500">Domain</th>
+                    <th className="px-6 py-3 text-left font-medium text-gray-500">Source</th>
+                    <th className="px-6 py-3 text-left font-medium text-gray-500">Status</th>
+                    <th className="px-6 py-3 text-left font-medium text-gray-500">Assign to Client</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {unassignedDomains.map((d) => (
+                    <tr key={d.id} className="border-t border-gray-100 hover:bg-gray-50">
+                      <td className="px-6 py-3 font-mono font-medium text-gray-800">{d.name}</td>
+                      <td className="px-6 py-3">
+                        <Badge label={d.source} variant={d.source === "SYNERGY" ? "blue" : "gray"} />
+                      </td>
+                      <td className="px-6 py-3">
+                        <Badge
+                          label={d.status}
+                          variant={d.status === "ACTIVE" ? "green" : d.status === "EXPIRING_SOON" ? "yellow" : "red"}
+                        />
+                      </td>
+                      <td className="px-6 py-3">
+                        <select
+                          defaultValue=""
+                          onChange={(e) => assignDomain(d.id, e.target.value)}
+                          className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        >
+                          <option value="">Select client…</option>
+                          {clients.map((c) => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Unassigned Hosting Accounts */}
+        {hosting.filter((h) => !h.clientId).length > 0 && (
+          <Card>
+            <CardHeader>
+              <h2 className="font-semibold text-gray-900">
+                Unassigned Hosting Accounts
+                <span className="ml-2 text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">
+                  {hosting.filter((h) => !h.clientId).length}
+                </span>
+              </h2>
+            </CardHeader>
+            <CardContent className="p-0">
+              {loadingHosting ? (
+                <p className="px-6 py-4 text-sm text-gray-400">Loading…</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left font-medium text-gray-500">Username</th>
+                      <th className="px-6 py-3 text-left font-medium text-gray-500">Primary Domain</th>
+                      <th className="px-6 py-3 text-left font-medium text-gray-500">Plan</th>
+                      <th className="px-6 py-3 text-left font-medium text-gray-500">Assign to Client</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {hosting.filter((h) => !h.clientId).map((h) => (
+                      <tr key={h.id} className="border-t border-gray-100 hover:bg-gray-50">
+                        <td className="px-6 py-3 font-mono text-gray-800">{h.username}</td>
+                        <td className="px-6 py-3 font-mono text-gray-600">{h.primaryDomain}</td>
+                        <td className="px-6 py-3 text-gray-500">{h.plan ?? "—"}</td>
+                        <td className="px-6 py-3">
+                          <select
+                            defaultValue=""
+                            onChange={(e) => assignHosting(h.id, e.target.value)}
+                            className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                          >
+                            <option value="">Select client…</option>
+                            {clients.map((c) => (
+                              <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* All Domains summary */}
+        <Card>
+          <CardHeader>
+            <h2 className="font-semibold text-gray-900">All Domains ({domains.length})</h2>
+          </CardHeader>
+          <CardContent className="p-0">
+            {loadingDomains ? (
+              <p className="px-6 py-4 text-sm text-gray-400">Loading…</p>
+            ) : domains.length === 0 ? (
+              <p className="px-6 py-4 text-sm text-gray-400">No domains yet. Pull from Synergy or add manually.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left font-medium text-gray-500">Domain</th>
+                    <th className="px-6 py-3 text-left font-medium text-gray-500">Client</th>
+                    <th className="px-6 py-3 text-left font-medium text-gray-500">Source</th>
+                    <th className="px-6 py-3 text-left font-medium text-gray-500">Status</th>
+                    <th className="px-6 py-3 text-left font-medium text-gray-500">Reassign</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {domains.map((d) => (
+                    <tr key={d.id} className="border-t border-gray-100 hover:bg-gray-50">
+                      <td className="px-6 py-3 font-mono font-medium text-gray-800">{d.name}</td>
+                      <td className="px-6 py-3 text-gray-600">{d.client?.name ?? <span className="text-gray-400 italic">Unassigned</span>}</td>
+                      <td className="px-6 py-3">
+                        <Badge label={d.source} variant={d.source === "SYNERGY" ? "blue" : "gray"} />
+                      </td>
+                      <td className="px-6 py-3">
+                        <Badge
+                          label={d.status}
+                          variant={d.status === "ACTIVE" ? "green" : d.status === "EXPIRING_SOON" ? "yellow" : "red"}
+                        />
+                      </td>
+                      <td className="px-6 py-3">
+                        <select
+                          value={d.clientId ?? ""}
+                          onChange={(e) => assignDomain(d.id, e.target.value)}
+                          className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        >
+                          <option value="">Unassigned</option>
+                          {clients.map((c) => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </CardContent>
+        </Card>
+
+      </div>
+  );
+}

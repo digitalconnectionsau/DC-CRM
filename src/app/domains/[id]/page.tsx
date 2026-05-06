@@ -35,7 +35,11 @@ export default async function DomainDetailPage({ params }: { params: { id: strin
             <CardHeader><h2 className="font-medium">Details</h2></CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div><span className="text-gray-500">Client:</span>{" "}
-                <Link href={`/clients/${domain.clientId}`} className="text-brand-600 hover:underline">{domain.client.name}</Link>
+                {domain.client ? (
+                  <Link href={`/clients/${domain.clientId}`} className="text-brand-600 hover:underline">{domain.client.name}</Link>
+                ) : (
+                  <span className="text-gray-400 italic">Unassigned</span>
+                )}
               </div>
               <div><span className="text-gray-500">Registrar:</span> {domain.registrar ?? "—"}</div>
               <div><span className="text-gray-500">Expires:</span> {expiryLabel(domain.expiresAt)}</div>

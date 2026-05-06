@@ -19,6 +19,7 @@ export default async function DomainsPage() {
     orderBy: { name: "asc" },
   });
 
+
   function statusVariant(status: string) {
     if (status === "ACTIVE") return "green";
     if (status === "EXPIRING_SOON") return "yellow";
@@ -57,7 +58,11 @@ export default async function DomainsPage() {
                       <Link href={`/domains/${d.id}`} className="font-medium text-brand-600 hover:underline">{d.name}</Link>
                     </td>
                     <td className="px-6 py-3">
-                      <Link href={`/clients/${d.clientId}`} className="text-gray-600 hover:underline">{d.client.name}</Link>
+                      {d.client ? (
+                        <Link href={`/clients/${d.clientId}`} className="text-gray-600 hover:underline">{d.client.name}</Link>
+                      ) : (
+                        <span className="text-gray-400 italic">Unassigned</span>
+                      )}
                     </td>
                     <td className="px-6 py-3 text-gray-500">{d.registrar ?? "—"}</td>
                     <td className="px-6 py-3">
