@@ -1,6 +1,9 @@
 [build]
 builder = "NIXPACKS"
 
+[build.env]
+NODE_VERSION = "20"
+
 [deploy]
 startCommand = "npx prisma migrate deploy && npm start"
 healthcheckPath = "/api/health"
