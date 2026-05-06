@@ -18,12 +18,12 @@ const statusVariant = (s: string) => {
   return "gray";
 };
 
-export default async function TicketDetailPage({ params }: { params: { id: string } }) {
+export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
-
+  const { id } = await params;
   const ticket = await prisma.ticket.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       client: true,
       comments: { include: { author: { select: { name: true, email: true } } }, orderBy: { createdAt: "asc" } },

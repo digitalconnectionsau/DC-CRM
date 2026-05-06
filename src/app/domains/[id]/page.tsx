@@ -8,12 +8,12 @@ import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
 import { formatDate, expiryLabel } from "@/lib/utils";
 
-export default async function DomainDetailPage({ params }: { params: { id: string } }) {
+export default async function DomainDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
-
+  const { id } = await params;
   const domain = await prisma.domain.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { client: true, dnsRecords: { orderBy: [{ type: "asc" }, { name: "asc" }] } },
   });
 

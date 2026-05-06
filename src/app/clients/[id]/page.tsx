@@ -9,12 +9,12 @@ import Link from "next/link";
 import { formatDate, expiryLabel } from "@/lib/utils";
 import { PlusIcon } from "@heroicons/react/24/outline";
 
-export default async function ClientDetailPage({ params }: { params: { id: string } }) {
+export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
-
+  const { id } = await params;
   const client = await prisma.client.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       domains: { orderBy: { name: "asc" } },
       tickets: { orderBy: { createdAt: "desc" }, take: 10 },

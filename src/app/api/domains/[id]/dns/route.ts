@@ -5,32 +5,32 @@ import { prisma } from "@/lib/db";
 import { getDomainDnsZone } from "@/lib/synergy";
 import { DnsType } from "@prisma/client";
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const records = await prisma.dnsRecord.findMany({ where: { domainId: params.id } });
+  const { id } = await params;
+  const records = await prisma.dnsRecord.findMany({ where: { domainId: id } });
   return NextResponse.json(records);
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
+  const { id } = await params;
   const body = await req.json();
   const { type, name, value, ttl, priority } = body;
 
   const record = await prisma.dnsRecord.create({
-    data: { domainId: params.id, type: type as DnsType, name, value, ttl: ttl ?? 3600, priority: priority ?? null },
+    data: { domainId: id, type: type as DnsType, name, value, ttl: ttl ?? 3600, priority: priority ?? null },
   });
   return NextResponse.json(record, { status: 201 });
 }
 
-export async function PUT(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const domain = await prisma.domain.findUnique({ where: { id: params.id } });
+  const { id } = await params;
+  const domain = await prisma.domain.findUnique({ where: { id } });
   if (!domain) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   try {
@@ -39,7 +39,7 @@ export async function PUT(_req: NextRequest, { params }: { params: { id: string 
     const mapped = swRecords
       .filter((r) => allowedTypes.includes(r.type?.toUpperCase()))
       .map((r) => ({
-        domainId: params.id,
+        domainId: id,
         type: r.type.toUpperCase() as DnsType,
         name: r.name ?? "@",
         value: r.content ?? "",
@@ -47,7 +47,7 @@ export async function PUT(_req: NextRequest, { params }: { params: { id: string 
         priority: r.priority ?? null,
       }));
 
-    await prisma.dnsRecord.deleteMany({ where: { domainId: params.id } });
+    await prisma.dnsRecord.deleteMany({ where: { domainId: id } });
     await prisma.dnsRecord.createMany({ data: mapped });
 
     return NextResponse.json({ synced: mapped.length });
