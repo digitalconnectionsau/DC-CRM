@@ -40,6 +40,12 @@ export function SettingsClient() {
   const [loadingDomains, setLoadingDomains] = useState(false);
   const [loadingHosting, setLoadingHosting] = useState(false);
 
+  // IP tracking state
+  const [currentIp, setCurrentIp] = useState<string | null>(null);
+  const [whitelistedIp, setWhitelistedIp] = useState<string | null>(null);
+  const [loadingIp, setLoadingIp] = useState(false);
+  const [savingIp, setSavingIp] = useState(false);
+
   const loadClients = useCallback(async () => {
     const res = await fetch("/api/clients");
     if (res.ok) setClients(await res.json());
@@ -59,11 +65,48 @@ export function SettingsClient() {
     setLoadingHosting(false);
   }, []);
 
+  const loadIpInfo = useCallback(async () => {
+    setLoadingIp(true);
+    const [ipRes, settingRes] = await Promise.all([
+      fetch("/api/my-ip"),
+      fetch("/api/settings?key=synergy_whitelisted_ip"),
+    ]);
+    if (ipRes.ok) {
+      const data = await ipRes.json();
+      setCurrentIp(data.outboundIp ?? null);
+    }
+    if (settingRes.ok) {
+      const data = await settingRes.json();
+      setWhitelistedIp(data.value ?? null);
+    }
+    setLoadingIp(false);
+  }, []);
+
   useEffect(() => {
     loadClients();
     loadDomains();
     loadHosting();
-  }, [loadClients, loadDomains, loadHosting]);
+    loadIpInfo();
+  }, [loadClients, loadDomains, loadHosting, loadIpInfo]);
+
+  async function markIpWhitelisted() {
+    if (!currentIp) return;
+    setSavingIp(true);
+    const res = await fetch("/api/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "synergy_whitelisted_ip", value: currentIp }),
+    });
+    if (res.ok) {
+      setWhitelistedIp(currentIp);
+      toast.success("Whitelisted IP saved");
+    } else {
+      toast.error("Failed to save IP");
+    }
+    setSavingIp(false);
+  }
+
+  const ipChanged = whitelistedIp && currentIp && whitelistedIp !== currentIp;
 
   async function pullDomains() {
     setPullingDomains(true);
@@ -114,6 +157,68 @@ export function SettingsClient() {
 
   return (
     <div className="p-6 space-y-6">
+
+      {/* Railway Outbound IP */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-semibold text-gray-900">Railway Outbound IP</h2>
+              <p className="text-sm text-gray-500 mt-0.5">
+                The IP address Railway uses to make outbound requests (e.g. to Synergy Wholesale).
+              </p>
+            </div>
+            <Badge label="IP Whitelist" variant="blue" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loadingIp ? (
+            <p className="text-sm text-gray-400">Detecting IP…</p>
+          ) : (
+            <div className="space-y-3">
+              {ipChanged && (
+                <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+                  <span className="text-red-500 text-lg mt-0.5">⚠️</span>
+                  <div className="text-sm">
+                    <p className="font-semibold text-red-800">IP address has changed!</p>
+                    <p className="text-red-700 mt-0.5">
+                      You need to update your Synergy Wholesale whitelist from{" "}
+                      <span className="font-mono font-bold">{whitelistedIp}</span> to{" "}
+                      <span className="font-mono font-bold">{currentIp}</span>.
+                    </p>
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="bg-gray-50 rounded-lg px-4 py-3">
+                  <p className="text-gray-500 text-xs font-medium uppercase tracking-wide mb-1">Current IP</p>
+                  <p className="font-mono font-semibold text-gray-900 text-base">{currentIp ?? "Unknown"}</p>
+                </div>
+                <div className={`rounded-lg px-4 py-3 ${ipChanged ? "bg-red-50" : "bg-gray-50"}`}>
+                  <p className="text-gray-500 text-xs font-medium uppercase tracking-wide mb-1">Whitelisted IP</p>
+                  <p className={`font-mono font-semibold text-base ${ipChanged ? "text-red-700 line-through" : "text-gray-900"}`}>
+                    {whitelistedIp ?? <span className="text-gray-400 italic font-sans font-normal">Not set</span>}
+                  </p>
+                </div>
+              </div>
+              {(!whitelistedIp || ipChanged) && currentIp && (
+                <button
+                  onClick={markIpWhitelisted}
+                  disabled={savingIp}
+                  className="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50 transition-colors"
+                >
+                  {savingIp ? "Saving…" : ipChanged ? "Mark new IP as whitelisted" : "Mark IP as whitelisted"}
+                </button>
+              )}
+              {whitelistedIp && !ipChanged && (
+                <p className="text-sm text-green-700 flex items-center gap-1.5">
+                  <span>✓</span> IP matches whitelisted address — Synergy API should be reachable.
+                </p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
         {/* Synergy Wholesale Integration */}
         <Card>
@@ -310,3 +415,5 @@ export function SettingsClient() {
       </div>
   );
 }
+
+
