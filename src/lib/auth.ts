@@ -4,7 +4,31 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { Role } from "@prisma/client";
 
+function cleanEnv(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+const resolvedSecret =
+  cleanEnv(process.env.NEXTAUTH_SECRET) ??
+  cleanEnv(process.env.AUTH_SECRET) ??
+  "dc-portal-fallback-secret-change-in-env";
+
+const resolvedNextAuthUrl = cleanEnv(process.env.NEXTAUTH_URL);
+if (resolvedNextAuthUrl) {
+  process.env.NEXTAUTH_URL = resolvedNextAuthUrl;
+}
+process.env.NEXTAUTH_SECRET = resolvedSecret;
+
 export const authOptions: NextAuthOptions = {
+  secret: resolvedSecret,
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers: [
