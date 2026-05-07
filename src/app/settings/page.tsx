@@ -8,11 +8,12 @@ import { SettingsClient } from "./SettingsClient";
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
+  const isAdmin = session.user?.role === "ADMIN";
 
   return (
     <DashboardLayout>
       <Header title="Settings" />
-      <SettingsClient />
+      <SettingsClient isAdmin={isAdmin} />
     </DashboardLayout>
   );
 }

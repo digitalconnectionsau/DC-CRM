@@ -32,7 +32,20 @@ interface HostingAccount {
   client: Client | null;
 }
 
-export function SettingsClient() {
+interface UserRow {
+  id: string;
+  name: string;
+  email: string;
+  role: "ADMIN" | "STAFF";
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface SettingsClientProps {
+  isAdmin: boolean;
+}
+
+export function SettingsClient({ isAdmin }: SettingsClientProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
   const [hosting, setHosting] = useState<HostingAccount[]>([]);
@@ -45,6 +58,18 @@ export function SettingsClient() {
   const [whitelistedIp, setWhitelistedIp] = useState<string | null>(null);
   const [loadingIp, setLoadingIp] = useState(false);
   const [savingIp, setSavingIp] = useState(false);
+  const [qbConnected, setQbConnected] = useState<boolean>(false);
+
+  // User management state
+  const [users, setUsers] = useState<UserRow[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [newUserRole, setNewUserRole] = useState<"ADMIN" | "STAFF">("STAFF");
+  const [resettingUserId, setResettingUserId] = useState<string | null>(null);
+  const [resetPasswords, setResetPasswords] = useState<Record<string, string>>({});
 
   const loadClients = useCallback(async () => {
     const res = await fetch("/api/clients");
@@ -79,15 +104,34 @@ export function SettingsClient() {
       const data = await settingRes.json();
       setWhitelistedIp(data.value ?? null);
     }
+
+    const qbRes = await fetch("/api/settings?key=qb_realm_id");
+    if (qbRes.ok) {
+      const data = await qbRes.json();
+      setQbConnected(Boolean(data?.value));
+    }
     setLoadingIp(false);
   }, []);
+
+  const loadUsers = useCallback(async () => {
+    if (!isAdmin) return;
+    setLoadingUsers(true);
+    const res = await fetch("/api/users");
+    if (res.ok) {
+      setUsers(await res.json());
+    } else {
+      toast.error("Failed to load users");
+    }
+    setLoadingUsers(false);
+  }, [isAdmin]);
 
   useEffect(() => {
     loadClients();
     loadDomains();
     loadHosting();
     loadIpInfo();
-  }, [loadClients, loadDomains, loadHosting, loadIpInfo]);
+    loadUsers();
+  }, [loadClients, loadDomains, loadHosting, loadIpInfo, loadUsers]);
 
   async function markIpWhitelisted() {
     if (!currentIp) return;
@@ -151,6 +195,61 @@ export function SettingsClient() {
     } else {
       toast.error("Failed to assign hosting account");
     }
+  }
+
+  async function createUser(e: React.FormEvent) {
+    e.preventDefault();
+    setCreatingUser(true);
+
+    const res = await fetch("/api/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: newUserName,
+        email: newUserEmail,
+        password: newUserPassword,
+        role: newUserRole,
+      }),
+    });
+
+    const data = await res.json().catch(() => null);
+    if (res.ok) {
+      toast.success("User created");
+      setNewUserName("");
+      setNewUserEmail("");
+      setNewUserPassword("");
+      setNewUserRole("STAFF");
+      loadUsers();
+    } else {
+      toast.error(data?.error ?? "Failed to create user");
+    }
+
+    setCreatingUser(false);
+  }
+
+  async function resetPassword(userId: string) {
+    const newPassword = resetPasswords[userId] ?? "";
+    if (!newPassword) {
+      toast.error("Enter a new password first");
+      return;
+    }
+
+    setResettingUserId(userId);
+    const res = await fetch(`/api/users/${userId}/reset-password`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ newPassword }),
+    });
+
+    const data = await res.json().catch(() => null);
+    if (res.ok) {
+      toast.success("Password reset");
+      setResetPasswords((prev) => ({ ...prev, [userId]: "" }));
+      loadUsers();
+    } else {
+      toast.error(data?.error ?? "Failed to reset password");
+    }
+    setResettingUserId(null);
   }
 
   const unassignedDomains = domains.filter((d) => !d.clientId);
@@ -243,6 +342,129 @@ export function SettingsClient() {
             </div>
           </CardContent>
         </Card>
+
+        {/* QuickBooks Integration */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold text-gray-900">QuickBooks Online</h2>
+                <p className="text-sm text-gray-500 mt-0.5">Connect your QuickBooks company and store tokens server-side.</p>
+              </div>
+              <Badge label={qbConnected ? "Connected" : "Not Connected"} variant={qbConnected ? "green" : "yellow"} />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <a
+              href="/api/integrations/quickbooks/connect"
+              className="inline-block bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-700 transition-colors"
+            >
+              {qbConnected ? "Reconnect QuickBooks" : "Connect QuickBooks"}
+            </a>
+          </CardContent>
+        </Card>
+
+        {isAdmin && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-semibold text-gray-900">User Management</h2>
+                  <p className="text-sm text-gray-500 mt-0.5">Add staff accounts and reset passwords.</p>
+                </div>
+                <Badge label="Admin Only" variant="red" />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <form onSubmit={createUser} className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                <input
+                  value={newUserName}
+                  onChange={(e) => setNewUserName(e.target.value)}
+                  placeholder="Full name"
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  required
+                />
+                <input
+                  type="email"
+                  value={newUserEmail}
+                  onChange={(e) => setNewUserEmail(e.target.value)}
+                  placeholder="Email"
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  required
+                />
+                <input
+                  type="password"
+                  value={newUserPassword}
+                  onChange={(e) => setNewUserPassword(e.target.value)}
+                  placeholder="Temporary password"
+                  minLength={8}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  required
+                />
+                <select
+                  value={newUserRole}
+                  onChange={(e) => setNewUserRole(e.target.value as "ADMIN" | "STAFF")}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                >
+                  <option value="STAFF">Staff</option>
+                  <option value="ADMIN">Admin</option>
+                </select>
+                <button
+                  type="submit"
+                  disabled={creatingUser}
+                  className="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50 transition-colors"
+                >
+                  {creatingUser ? "Creating..." : "Add user"}
+                </button>
+              </form>
+
+              {loadingUsers ? (
+                <p className="text-sm text-gray-400">Loading users…</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-2 text-left font-medium text-gray-500">Name</th>
+                      <th className="px-4 py-2 text-left font-medium text-gray-500">Email</th>
+                      <th className="px-4 py-2 text-left font-medium text-gray-500">Role</th>
+                      <th className="px-4 py-2 text-left font-medium text-gray-500">Reset Password</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map((u) => (
+                      <tr key={u.id} className="border-t border-gray-100">
+                        <td className="px-4 py-2 text-gray-800">{u.name}</td>
+                        <td className="px-4 py-2 text-gray-600">{u.email}</td>
+                        <td className="px-4 py-2">
+                          <Badge label={u.role} variant={u.role === "ADMIN" ? "red" : "gray"} />
+                        </td>
+                        <td className="px-4 py-2">
+                          <div className="flex gap-2">
+                            <input
+                              type="password"
+                              value={resetPasswords[u.id] ?? ""}
+                              onChange={(e) => setResetPasswords((prev) => ({ ...prev, [u.id]: e.target.value }))}
+                              placeholder="New password"
+                              minLength={8}
+                              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                            />
+                            <button
+                              onClick={() => resetPassword(u.id)}
+                              disabled={resettingUserId === u.id}
+                              className="bg-gray-800 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
+                            >
+                              {resettingUserId === u.id ? "Saving..." : "Reset"}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Unassigned Domains */}
         <Card>
