@@ -10,7 +10,12 @@ export async function GET() {
   try {
     const domains = await listDomains();
     return NextResponse.json(domains);
-  } catch {
-    return NextResponse.json({ error: "Failed to connect to Synergy Wholesale API" }, { status: 502 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("Synergy accounts connectivity error:", message);
+    return NextResponse.json(
+      { error: "Failed to connect to Synergy Wholesale API", detail: message },
+      { status: 502 }
+    );
   }
 }

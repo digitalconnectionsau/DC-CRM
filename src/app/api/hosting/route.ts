@@ -7,9 +7,18 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const accounts = await prisma.hostingAccount.findMany({
-    include: { client: true },
-    orderBy: { primaryDomain: "asc" },
-  });
-  return NextResponse.json(accounts);
+  try {
+    const accounts = await prisma.hostingAccount.findMany({
+      include: { client: true },
+      orderBy: { primaryDomain: "asc" },
+    });
+    return NextResponse.json(accounts);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("Hosting connectivity error:", message);
+    return NextResponse.json(
+      { error: "Failed to load hosting accounts", detail: message },
+      { status: 502 }
+    );
+  }
 }

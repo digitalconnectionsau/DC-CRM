@@ -45,6 +45,17 @@ interface SettingsClientProps {
   isAdmin: boolean;
 }
 
+interface ConnectionResultItem {
+  ok: boolean;
+  message: string;
+}
+
+interface ConnectionResults {
+  ranAt: string;
+  domains: ConnectionResultItem;
+  hosting: ConnectionResultItem;
+}
+
 export function SettingsClient({ isAdmin }: SettingsClientProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
@@ -70,6 +81,8 @@ export function SettingsClient({ isAdmin }: SettingsClientProps) {
   const [newUserRole, setNewUserRole] = useState<"ADMIN" | "STAFF">("STAFF");
   const [resettingUserId, setResettingUserId] = useState<string | null>(null);
   const [resetPasswords, setResetPasswords] = useState<Record<string, string>>({});
+  const [testingConnections, setTestingConnections] = useState(false);
+  const [connectionResults, setConnectionResults] = useState<ConnectionResults | null>(null);
 
   const loadClients = useCallback(async () => {
     const res = await fetch("/api/clients");
@@ -252,6 +265,62 @@ export function SettingsClient({ isAdmin }: SettingsClientProps) {
     setResettingUserId(null);
   }
 
+  async function runIntegrationTests() {
+    setTestingConnections(true);
+
+    const [domainsResult, hostingResult] = await Promise.allSettled([
+      fetch("/api/integrations/synergy/accounts"),
+      fetch("/api/hosting"),
+    ]);
+
+    let domainsStatus: ConnectionResultItem = { ok: false, message: "Request failed" };
+    let hostingStatus: ConnectionResultItem = { ok: false, message: "Request failed" };
+
+    if (domainsResult.status === "fulfilled") {
+      const res = domainsResult.value;
+      const payload = await res.json().catch(() => null);
+      if (res.ok) {
+        const count = Array.isArray(payload) ? payload.length : 0;
+        domainsStatus = { ok: true, message: `Connected (${count} domains returned)` };
+      } else {
+        domainsStatus = {
+          ok: false,
+          message: payload?.detail ?? payload?.error ?? `HTTP ${res.status}`,
+        };
+      }
+    }
+
+    if (hostingResult.status === "fulfilled") {
+      const res = hostingResult.value;
+      const payload = await res.json().catch(() => null);
+      if (res.ok) {
+        const count = Array.isArray(payload) ? payload.length : 0;
+        hostingStatus = { ok: true, message: `Connected (${count} hosting accounts returned)` };
+      } else {
+        hostingStatus = {
+          ok: false,
+          message: payload?.detail ?? payload?.error ?? `HTTP ${res.status}`,
+        };
+      }
+    }
+
+    const results: ConnectionResults = {
+      ranAt: new Date().toISOString(),
+      domains: domainsStatus,
+      hosting: hostingStatus,
+    };
+
+    setConnectionResults(results);
+
+    if (results.domains.ok && results.hosting.ok) {
+      toast.success("Integration tests passed");
+    } else {
+      toast.error("One or more integration tests failed");
+    }
+
+    setTestingConnections(false);
+  }
+
   const unassignedDomains = domains.filter((d) => !d.clientId);
 
   return (
@@ -340,6 +409,45 @@ export function SettingsClient({ isAdmin }: SettingsClientProps) {
                 {pullingDomains ? "Pulling Domains…" : "Pull Domains from Synergy"}
               </button>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Integration Diagnostics */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold text-gray-900">Integration Diagnostics</h2>
+                <p className="text-sm text-gray-500 mt-0.5">Test domain and hosting connectivity in one click.</p>
+              </div>
+              <Badge label="Health Check" variant="blue" />
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <button
+              onClick={runIntegrationTests}
+              disabled={testingConnections}
+              className="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50 transition-colors"
+            >
+              {testingConnections ? "Running tests..." : "Run Integration Test"}
+            </button>
+
+            {connectionResults && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <div className={`rounded-lg border px-4 py-3 ${connectionResults.domains.ok ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
+                  <p className="font-semibold text-gray-900">Domains (Synergy)</p>
+                  <p className={connectionResults.domains.ok ? "text-green-700" : "text-red-700"}>
+                    {connectionResults.domains.message}
+                  </p>
+                </div>
+                <div className={`rounded-lg border px-4 py-3 ${connectionResults.hosting.ok ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
+                  <p className="font-semibold text-gray-900">Hosting</p>
+                  <p className={connectionResults.hosting.ok ? "text-green-700" : "text-red-700"}>
+                    {connectionResults.hosting.message}
+                  </p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
