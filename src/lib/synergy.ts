@@ -61,6 +61,25 @@ async function invokeOperation(
   throw new Error(`SOAP operation '${operation}' not found in Synergy client`);
 }
 
+async function invokeAnyOperation(
+  client: Record<string, unknown>,
+  operations: string[],
+  args: Record<string, unknown>
+) {
+  for (const operation of operations) {
+    try {
+      return await invokeOperation(client, operation, args);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (!message.includes("not found in Synergy client")) {
+        throw err;
+      }
+    }
+  }
+
+  throw new Error(`SOAP operations not found in Synergy client: ${operations.join(", ")}`);
+}
+
 export interface SwDomain {
   domainName: string;
   expiryDate: string;
@@ -78,9 +97,13 @@ export interface SwDnsRecord {
 
 export async function listDomains(): Promise<SwDomain[]> {
   const client = await getClient();
-  const result = await invokeOperation(client as unknown as Record<string, unknown>, "domainList", {
+  const result = await invokeAnyOperation(
+    client as unknown as Record<string, unknown>,
+    ["listDomains", "domainList"],
+    {
     ...getCredentials(),
-  });
+    }
+  );
   return (result as { domainList?: SwDomain[] })?.domainList ?? [];
 }
 
@@ -95,10 +118,14 @@ export async function getDomainInfo(domainName: string) {
 
 export async function getDomainDnsZone(domainName: string): Promise<SwDnsRecord[]> {
   const client = await getClient();
-  const result = await invokeOperation(client as unknown as Record<string, unknown>, "listDNS", {
-    ...getCredentials(),
-    domainName,
-  });
+  const result = await invokeAnyOperation(
+    client as unknown as Record<string, unknown>,
+    ["listDNSZone", "listDNS"],
+    {
+      ...getCredentials(),
+      domainName,
+    }
+  );
   return (result as { record?: SwDnsRecord[] })?.record ?? [];
 }
 
@@ -111,35 +138,47 @@ export async function addDnsRecord(
   priority?: number
 ) {
   const client = await getClient();
-  const result = await invokeOperation(client as unknown as Record<string, unknown>, "addDNS", {
-    ...getCredentials(),
-    domainName,
-    type,
-    name,
-    content,
-    ttl,
-    ...(priority !== undefined ? { priority } : {}),
-  });
+  const result = await invokeAnyOperation(
+    client as unknown as Record<string, unknown>,
+    ["addDNSRecord", "addDNS"],
+    {
+      ...getCredentials(),
+      domainName,
+      type,
+      name,
+      content,
+      ttl,
+      ...(priority !== undefined ? { priority } : {}),
+    }
+  );
   return result;
 }
 
 export async function deleteDnsRecord(domainName: string, recordId: string) {
   const client = await getClient();
-  const result = await invokeOperation(client as unknown as Record<string, unknown>, "deleteDNS", {
-    ...getCredentials(),
-    domainName,
-    recordId,
-  });
+  const result = await invokeAnyOperation(
+    client as unknown as Record<string, unknown>,
+    ["deleteDNSRecord", "deleteDNS"],
+    {
+      ...getCredentials(),
+      domainName,
+      recordId,
+    }
+  );
   return result;
 }
 
 export async function renewDomain(domainName: string, years = 1) {
   const client = await getClient();
-  const result = await invokeOperation(client as unknown as Record<string, unknown>, "domainRenew", {
-    ...getCredentials(),
-    domainName,
-    years,
-  });
+  const result = await invokeAnyOperation(
+    client as unknown as Record<string, unknown>,
+    ["renewDomain", "domainRenew"],
+    {
+      ...getCredentials(),
+      domainName,
+      years,
+    }
+  );
   return result;
 }
 
