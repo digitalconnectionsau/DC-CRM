@@ -295,7 +295,13 @@ export function SettingsClient({ isAdmin }: SettingsClientProps) {
       const payload = await res.json().catch(() => null);
       if (res.ok) {
         const count = Array.isArray(payload) ? payload.length : 0;
-        hostingStatus = { ok: true, message: `Connected (${count} hosting accounts returned)` };
+        hostingStatus = {
+          ok: true,
+          message:
+            count === 0
+              ? "Connected (0 hosting accounts in DB; import/sync not configured yet)"
+              : `Connected (${count} hosting accounts returned)`,
+        };
       } else {
         hostingStatus = {
           ok: false,

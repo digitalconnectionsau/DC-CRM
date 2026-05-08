@@ -13,6 +13,54 @@ async function getClient() {
   return soap.createClientAsync(WSDL_URL);
 }
 
+async function callSoapOperation(
+  target: Record<string, unknown>,
+  operation: string,
+  args: Record<string, unknown>
+) {
+  const asyncName = `${operation}Async`;
+  const asyncFn = target[asyncName];
+  if (typeof asyncFn === "function") {
+    const [result] = await (asyncFn as (payload: Record<string, unknown>) => Promise<unknown[]>)(args);
+    return result;
+  }
+
+  const callbackFn = target[operation];
+  if (typeof callbackFn === "function") {
+    return await new Promise<unknown>((resolve, reject) => {
+      (callbackFn as (payload: Record<string, unknown>, cb: (err: unknown, result: unknown) => void) => void)(
+        args,
+        (err, result) => {
+          if (err) reject(err);
+          else resolve(result);
+        }
+      );
+    });
+  }
+
+  return undefined;
+}
+
+async function invokeOperation(
+  client: Record<string, unknown>,
+  operation: string,
+  args: Record<string, unknown>
+) {
+  const direct = await callSoapOperation(client, operation, args);
+  if (direct !== undefined) return direct;
+
+  for (const service of Object.values(client)) {
+    if (!service || typeof service !== "object") continue;
+    for (const port of Object.values(service as Record<string, unknown>)) {
+      if (!port || typeof port !== "object") continue;
+      const result = await callSoapOperation(port as Record<string, unknown>, operation, args);
+      if (result !== undefined) return result;
+    }
+  }
+
+  throw new Error(`SOAP operation '${operation}' not found in Synergy client`);
+}
+
 export interface SwDomain {
   domainName: string;
   expiryDate: string;
@@ -30,15 +78,15 @@ export interface SwDnsRecord {
 
 export async function listDomains(): Promise<SwDomain[]> {
   const client = await getClient();
-  const [result] = await client.domainListAsync({
+  const result = await invokeOperation(client as unknown as Record<string, unknown>, "domainList", {
     ...getCredentials(),
   });
-  return result?.domainList ?? [];
+  return (result as { domainList?: SwDomain[] })?.domainList ?? [];
 }
 
 export async function getDomainInfo(domainName: string) {
   const client = await getClient();
-  const [result] = await client.domainInfoAsync({
+  const result = await invokeOperation(client as unknown as Record<string, unknown>, "domainInfo", {
     ...getCredentials(),
     domainName,
   });
@@ -47,11 +95,11 @@ export async function getDomainInfo(domainName: string) {
 
 export async function getDomainDnsZone(domainName: string): Promise<SwDnsRecord[]> {
   const client = await getClient();
-  const [result] = await client.listDNSAsync({
+  const result = await invokeOperation(client as unknown as Record<string, unknown>, "listDNS", {
     ...getCredentials(),
     domainName,
   });
-  return result?.record ?? [];
+  return (result as { record?: SwDnsRecord[] })?.record ?? [];
 }
 
 export async function addDnsRecord(
@@ -63,7 +111,7 @@ export async function addDnsRecord(
   priority?: number
 ) {
   const client = await getClient();
-  const [result] = await client.addDNSAsync({
+  const result = await invokeOperation(client as unknown as Record<string, unknown>, "addDNS", {
     ...getCredentials(),
     domainName,
     type,
@@ -77,7 +125,7 @@ export async function addDnsRecord(
 
 export async function deleteDnsRecord(domainName: string, recordId: string) {
   const client = await getClient();
-  const [result] = await client.deleteDNSAsync({
+  const result = await invokeOperation(client as unknown as Record<string, unknown>, "deleteDNS", {
     ...getCredentials(),
     domainName,
     recordId,
@@ -87,7 +135,7 @@ export async function deleteDnsRecord(domainName: string, recordId: string) {
 
 export async function renewDomain(domainName: string, years = 1) {
   const client = await getClient();
-  const [result] = await client.domainRenewAsync({
+  const result = await invokeOperation(client as unknown as Record<string, unknown>, "domainRenew", {
     ...getCredentials(),
     domainName,
     years,
@@ -97,7 +145,7 @@ export async function renewDomain(domainName: string, years = 1) {
 
 export async function checkDomainAvailability(domainName: string) {
   const client = await getClient();
-  const [result] = await client.checkDomainAsync({
+  const result = await invokeOperation(client as unknown as Record<string, unknown>, "checkDomain", {
     ...getCredentials(),
     domainName,
   });
