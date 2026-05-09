@@ -2,10 +2,22 @@ import soap from "soap";
 
 const WSDL_URL = "https://api.synergywholesale.com/?wsdl";
 
+function cleanEnv(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
 function getCredentials() {
   return {
-    resellerID: process.env.SW_RESELLER_ID!,
-    apiKey: process.env.SW_API_KEY!,
+    resellerID: cleanEnv(process.env.SW_RESELLER_ID)!,
+    apiKey: cleanEnv(process.env.SW_API_KEY)!,
   };
 }
 
@@ -102,15 +114,47 @@ interface SynergyResponse {
   record?: SwDnsRecord[];
 }
 
-function ensureSuccessfulResponse<T>(response: T): T {
-  if (!response || typeof response !== "object") return response;
+type SoapWrappedValue = {
+  $value?: unknown;
+  return?: unknown;
+  [key: string]: unknown;
+};
 
-  const candidate = response as SynergyResponse;
+function normalizeSoapValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(normalizeSoapValue);
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const candidate = value as SoapWrappedValue;
+  if ("$value" in candidate && Object.keys(candidate).every((key) => key === "$value" || key === "attributes")) {
+    return normalizeSoapValue(candidate.$value);
+  }
+
+  if ("return" in candidate && Object.keys(candidate).length <= 2) {
+    return normalizeSoapValue(candidate.return);
+  }
+
+  const normalizedEntries = Object.entries(candidate)
+    .filter(([key]) => key !== "attributes")
+    .map(([key, entryValue]) => [key, normalizeSoapValue(entryValue)]);
+
+  return Object.fromEntries(normalizedEntries);
+}
+
+function ensureSuccessfulResponse<T>(response: T): T {
+  const normalized = normalizeSoapValue(response) as T;
+  if (!normalized || typeof normalized !== "object") return normalized;
+
+  const candidate = normalized as SynergyResponse;
   if (candidate.status && candidate.status !== "OK") {
     throw new Error(candidate.errorMessage ?? `Synergy API returned status ${candidate.status}`);
   }
 
-  return response;
+  return normalized;
 }
 
 export async function listDomains(): Promise<SwDomain[]> {
@@ -121,6 +165,8 @@ export async function listDomains(): Promise<SwDomain[]> {
     ["listDomains", "domainList"],
     {
       ...getCredentials(),
+      page: 1,
+      limit: 500,
     }
     )
   ) as SynergyResponse;
