@@ -1,0 +1,32 @@
+name: Deploy cPanel Synergy Bridge
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure remote path exists
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.CPANEL_HOST }}
+          username: ${{ secrets.CPANEL_USER }}
+          key: ${{ secrets.CPANEL_SSH_KEY }}
+          port: ${{ secrets.CPANEL_PORT }}
+          script: mkdir -p "${{ secrets.CPANEL_BRIDGE_PATH }}"
+
+      - name: Upload bridge files
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.CPANEL_HOST }}
+          username: ${{ secrets.CPANEL_USER }}
+          key: ${{ secrets.CPANEL_SSH_KEY }}
+          port: ${{ secrets.CPANEL_PORT }}
+          source: "bridge/cpanel/synergy-bridge.php,bridge/cpanel/config.example.php"
+          target: ${{ secrets.CPANEL_BRIDGE_PATH }}
+          strip_components: 2

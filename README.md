@@ -46,3 +46,35 @@ Internal management portal for DC Hosting — integrates Synergy (WHM/cPanel) an
 | `QB_CLIENT_ID` | QuickBooks app client ID |
 | `QB_CLIENT_SECRET` | QuickBooks app client secret |
 | `QB_ENVIRONMENT` | `sandbox` or `production` |
+| `SYNERGY_BRIDGE_URL` | Optional HTTPS URL to cPanel bridge endpoint |
+| `SYNERGY_BRIDGE_TOKEN` | Shared bearer token used by Railway to call cPanel bridge |
+
+## cPanel Synergy Bridge (Fixed IP)
+
+Use this when Railway outbound IP changes break Synergy API whitelisting.
+
+1. Upload `bridge/cpanel/synergy-bridge.php` to your cPanel host.
+2. Copy `bridge/cpanel/config.example.php` to `config.php` on cPanel and fill in:
+	- `bridge_token`
+	- `sw_reseller_id`
+	- `sw_api_key`
+3. Whitelist the cPanel server IP in Synergy.
+4. In Railway, set:
+	- `SYNERGY_BRIDGE_URL=https://your-domain/synergy-bridge.php`
+	- `SYNERGY_BRIDGE_TOKEN=...same-bridge-token...`
+
+When these env vars are set, the app routes Synergy calls via cPanel bridge. If they are unset, it falls back to direct SOAP from Railway.
+
+## GitHub Deploy Button (cPanel bridge)
+
+Use the manual workflow `.github/workflows/deploy-cpanel-bridge.yml`.
+
+Set these GitHub repository secrets:
+
+- `CPANEL_HOST`
+- `CPANEL_USER`
+- `CPANEL_PORT`
+- `CPANEL_SSH_KEY`
+- `CPANEL_BRIDGE_PATH`
+
+Then run **Actions → Deploy cPanel Synergy Bridge → Run workflow**.
