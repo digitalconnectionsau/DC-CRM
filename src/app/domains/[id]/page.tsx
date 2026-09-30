@@ -36,7 +36,7 @@ export default async function DomainDetailPage({ params }: { params: Promise<{ i
             <CardContent className="space-y-2 text-sm">
               <div><span className="text-gray-500">Client:</span>{" "}
                 {domain.client ? (
-                  <Link href={`/clients/${domain.clientId}`} className="text-brand-600 hover:underline">{domain.client.name}</Link>
+                  <Link href={`/clients/${domain.clientId}`} className="text-brand-600 hover:underline">{`${domain.client.firstName} ${domain.client.lastName}`.trim() || domain.client.companyName || "Client"}</Link>
                 ) : (
                   <span className="text-gray-400 italic">Unassigned</span>
                 )}

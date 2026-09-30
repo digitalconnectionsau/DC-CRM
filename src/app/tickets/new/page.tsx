@@ -16,7 +16,7 @@ function NewTicketForm() {
     clientId: params.get("clientId") ?? "",
     priority: "MEDIUM",
   });
-  const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
+  const [clients, setClients] = useState<{ id: string; firstName: string; lastName: string; companyName: string | null }[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -58,7 +58,7 @@ function NewTicketForm() {
         <select required value={form.clientId} onChange={(e) => set("clientId", e.target.value)}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
           <option value="">Select client...</option>
-          {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {clients.map((c) => <option key={c.id} value={c.id}>{`${c.firstName} ${c.lastName}`.trim() || c.companyName || c.id}</option>)}
         </select>
       </div>
       <div>

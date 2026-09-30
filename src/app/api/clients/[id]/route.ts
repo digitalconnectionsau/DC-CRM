@@ -20,9 +20,31 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
   const body = await req.json();
+  // Whitelist updatable fields
+  const {
+    firstName, lastName, email, phone, mobile,
+    companyName, website,
+    billingAddress1, billingAddress2, billingCity, billingState, billingPostcode, billingCountry,
+    notes,
+  } = body;
   const client = await prisma.client.update({
     where: { id },
-    data: body,
+    data: {
+      ...(firstName !== undefined && { firstName }),
+      ...(lastName !== undefined && { lastName }),
+      ...(email !== undefined && { email }),
+      ...(phone !== undefined && { phone: phone || null }),
+      ...(mobile !== undefined && { mobile: mobile || null }),
+      ...(companyName !== undefined && { companyName: companyName || null }),
+      ...(website !== undefined && { website: website || null }),
+      ...(billingAddress1 !== undefined && { billingAddress1: billingAddress1 || null }),
+      ...(billingAddress2 !== undefined && { billingAddress2: billingAddress2 || null }),
+      ...(billingCity !== undefined && { billingCity: billingCity || null }),
+      ...(billingState !== undefined && { billingState: billingState || null }),
+      ...(billingPostcode !== undefined && { billingPostcode: billingPostcode || null }),
+      ...(billingCountry !== undefined && { billingCountry: billingCountry || null }),
+      ...(notes !== undefined && { notes: notes || null }),
+    },
   });
   return NextResponse.json(client);
 }

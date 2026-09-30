@@ -2,6 +2,11 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { format, differenceInDays } from "date-fns";
 
+export function clientDisplayName(client: { firstName: string; lastName: string; companyName?: string | null }): string {
+  const full = `${client.firstName} ${client.lastName}`.trim();
+  return full || client.companyName || "Unknown";
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }

@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/Badge";
 
 interface Client {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
+  companyName: string | null;
 }
 
 interface Domain {
@@ -630,7 +632,7 @@ export function SettingsClient({ isAdmin }: SettingsClientProps) {
                         >
                           <option value="">Select client…</option>
                           {clients.map((c) => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
+                            <option key={c.id} value={c.id}>{`${c.firstName} ${c.lastName}`.trim() || c.companyName || c.id}</option>
                           ))}
                         </select>
                       </td>
@@ -680,7 +682,7 @@ export function SettingsClient({ isAdmin }: SettingsClientProps) {
                           >
                             <option value="">Select client…</option>
                             {clients.map((c) => (
-                              <option key={c.id} value={c.id}>{c.name}</option>
+                              <option key={c.id} value={c.id}>{`${c.firstName} ${c.lastName}`.trim() || c.companyName || c.id}</option>
                             ))}
                           </select>
                         </td>
@@ -718,7 +720,7 @@ export function SettingsClient({ isAdmin }: SettingsClientProps) {
                   {domains.map((d) => (
                     <tr key={d.id} className="border-t border-gray-100 hover:bg-gray-50">
                       <td className="px-6 py-3 font-mono font-medium text-gray-800">{d.name}</td>
-                      <td className="px-6 py-3 text-gray-600">{d.client?.name ?? <span className="text-gray-400 italic">Unassigned</span>}</td>
+                      <td className="px-6 py-3 text-gray-600">{d.client ? (`${d.client.firstName} ${d.client.lastName}`.trim() || d.client.companyName || "Client") : <span className="text-gray-400 italic">Unassigned</span>}</td>
                       <td className="px-6 py-3">
                         <Badge label={d.source} variant={d.source === "SYNERGY" ? "blue" : "gray"} />
                       </td>
@@ -736,7 +738,7 @@ export function SettingsClient({ isAdmin }: SettingsClientProps) {
                         >
                           <option value="">Unassigned</option>
                           {clients.map((c) => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
+                            <option key={c.id} value={c.id}>{`${c.firstName} ${c.lastName}`.trim() || c.companyName || c.id}</option>
                           ))}
                         </select>
                       </td>

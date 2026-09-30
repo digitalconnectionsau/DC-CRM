@@ -59,7 +59,7 @@ export default async function DomainsPage() {
                     </td>
                     <td className="px-6 py-3">
                       {d.client ? (
-                        <Link href={`/clients/${d.clientId}`} className="text-gray-600 hover:underline">{d.client.name}</Link>
+                        <Link href={`/clients/${d.clientId}`} className="text-gray-600 hover:underline">{`${d.client.firstName} ${d.client.lastName}`.trim() || d.client.companyName || "Client"}</Link>
                       ) : (
                         <span className="text-gray-400 italic">Unassigned</span>
                       )}

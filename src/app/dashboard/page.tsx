@@ -77,7 +77,7 @@ export default async function DashboardPage() {
                           <Link href={`/domains/${d.id}`} className="font-medium text-brand-600 hover:underline">
                             {d.name}
                           </Link>
-                          <div className="text-xs text-gray-400">{d.client?.name ?? "Unassigned"}</div>
+                          <div className="text-xs text-gray-400">{d.client ? `${d.client.firstName} ${d.client.lastName}`.trim() || d.client.companyName || "Unassigned" : "Unassigned"}</div>
                         </td>
                         <td className="px-6 py-3 text-right">
                           <Badge label={expiryLabel(d.expiresAt)} variant="yellow" />
@@ -106,7 +106,7 @@ export default async function DashboardPage() {
                           <Link href={`/tickets/${t.id}`} className="font-medium text-brand-600 hover:underline">
                             {t.title}
                           </Link>
-                          <div className="text-xs text-gray-400">{t.client.name}</div>
+                          <div className="text-xs text-gray-400">{`${t.client.firstName} ${t.client.lastName}`.trim() || t.client.companyName || "Unknown"}</div>
                         </td>
                         <td className="px-6 py-3 text-right">
                           <Badge

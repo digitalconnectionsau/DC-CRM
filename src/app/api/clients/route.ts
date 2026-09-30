@@ -9,7 +9,7 @@ export async function GET() {
 
   const clients = await prisma.client.findMany({
     include: { _count: { select: { domains: true, tickets: true } } },
-    orderBy: { name: "asc" },
+    orderBy: { firstName: "asc" },
   });
   return NextResponse.json(clients);
 }
@@ -19,15 +19,35 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { name, email, phone, company, notes } = body;
+  const {
+    firstName, lastName, email, phone, mobile,
+    companyName, website,
+    billingAddress1, billingAddress2, billingCity, billingState, billingPostcode, billingCountry,
+    notes,
+  } = body;
 
-  if (!name || !email) {
-    return NextResponse.json({ error: "Name and email are required" }, { status: 400 });
+  if (!email) {
+    return NextResponse.json({ error: "Email is required" }, { status: 400 });
   }
 
   try {
     const client = await prisma.client.create({
-      data: { name, email, phone: phone || null, company: company || null, notes: notes || null },
+      data: {
+        firstName: firstName ?? "",
+        lastName: lastName ?? "",
+        email,
+        phone: phone || null,
+        mobile: mobile || null,
+        companyName: companyName || null,
+        website: website || null,
+        billingAddress1: billingAddress1 || null,
+        billingAddress2: billingAddress2 || null,
+        billingCity: billingCity || null,
+        billingState: billingState || null,
+        billingPostcode: billingPostcode || null,
+        billingCountry: billingCountry || "Australia",
+        notes: notes || null,
+      },
     });
     return NextResponse.json(client, { status: 201 });
   } catch {

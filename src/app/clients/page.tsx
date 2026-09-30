@@ -6,7 +6,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
 import Link from "next/link";
-import { formatDate } from "@/lib/utils";
+import { formatDate, clientDisplayName } from "@/lib/utils";
 import { PlusIcon } from "@heroicons/react/24/outline";
 
 export default async function ClientsPage() {
@@ -17,7 +17,7 @@ export default async function ClientsPage() {
     include: {
       _count: { select: { domains: true, tickets: true } },
     },
-    orderBy: { name: "asc" },
+    orderBy: { firstName: "asc" },
   });
 
   return (
@@ -50,11 +50,11 @@ export default async function ClientsPage() {
                 <tr key={c.id} className="border-t border-gray-100 hover:bg-gray-50">
                   <td className="px-6 py-3">
                     <Link href={`/clients/${c.id}`} className="font-medium text-brand-600 hover:underline">
-                      {c.name}
+                      {clientDisplayName(c)}
                     </Link>
                   </td>
                   <td className="px-6 py-3 text-gray-600">{c.email}</td>
-                  <td className="px-6 py-3 text-gray-500">{c.company ?? "—"}</td>
+                  <td className="px-6 py-3 text-gray-500">{c.companyName ?? "—"}</td>
                   <td className="px-6 py-3 text-center">{c._count.domains}</td>
                   <td className="px-6 py-3 text-center">{c._count.tickets}</td>
                   <td className="px-6 py-3 text-gray-400">{formatDate(c.createdAt)}</td>

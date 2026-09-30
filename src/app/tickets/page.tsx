@@ -7,7 +7,7 @@ import { Header } from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
-import { formatDate } from "@/lib/utils";
+import { formatDate, clientDisplayName } from "@/lib/utils";
 import { PlusIcon } from "@heroicons/react/24/outline";
 
 const statusVariant = (s: string) => {
@@ -62,7 +62,7 @@ export default async function TicketsPage() {
                     <Link href={`/tickets/${t.id}`} className="font-medium text-brand-600 hover:underline">{t.title}</Link>
                   </td>
                   <td className="px-6 py-3">
-                    <Link href={`/clients/${t.clientId}`} className="text-gray-600 hover:underline">{t.client.name}</Link>
+                    <Link href={`/clients/${t.clientId}`} className="text-gray-600 hover:underline">{clientDisplayName(t.client)}</Link>
                   </td>
                   <td className="px-6 py-3">
                     <Badge label={t.status.replace(/_/g, " ")} variant={statusVariant(t.status) as "blue" | "yellow" | "orange" | "green" | "gray"} />

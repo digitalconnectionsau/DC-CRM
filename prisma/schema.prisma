@@ -17,21 +17,51 @@ model User {
   updatedAt       DateTime           @updatedAt
   assignedTickets TicketAssignment[]
   comments        TicketComment[]
+  timeEntries     TimeEntry[]
 }
 
 model Client {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  phone        String?
-  company      String?
-  quickbooksId String?  @unique
-  notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  domains      Domain[]
-  tickets      Ticket[]
+  id              String          @id @default(cuid())
+  // Primary contact
+  firstName       String          @default("")
+  lastName        String          @default("")
+  email           String          @unique
+  phone           String?
+  mobile          String?
+  // Company
+  companyName     String?
+  website         String?
+  // Billing address (QuickBooks compatible)
+  billingAddress1 String?
+  billingAddress2 String?
+  billingCity     String?
+  billingState    String?
+  billingPostcode String?
+  billingCountry  String?         @default("Australia")
+  // Meta
+  quickbooksId    String?         @unique
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  domains         Domain[]
+  tickets         Ticket[]
   hostingAccounts HostingAccount[]
+  contacts        ClientContact[]
+}
+
+model ClientContact {
+  id        String   @id @default(cuid())
+  clientId  String
+  firstName String
+  lastName  String
+  email     String?
+  phone     String?
+  mobile    String?
+  role      String?
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }
 
 model Domain {
@@ -76,6 +106,7 @@ model Ticket {
   client      Client             @relation(fields: [clientId], references: [id])
   assignments TicketAssignment[]
   comments    TicketComment[]
+  timeEntries TimeEntry[]
 }
 
 model TicketAssignment {
@@ -136,6 +167,27 @@ enum Priority {
   MEDIUM
   HIGH
   URGENT
+}
+
+model TimeEntry {
+  id              String       @id @default(cuid())
+  userId          String
+  ticketId        String?
+  description     String
+  startTime       DateTime
+  endTime         DateTime?
+  durationMinutes Int?
+  billable        Boolean      @default(true)
+  workType        WorkType     @default(REMOTE)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  user            User         @relation(fields: [userId], references: [id])
+  ticket          Ticket?      @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+}
+
+enum WorkType {
+  ONSITE
+  REMOTE
 }
 
 model HostingAccount {
